@@ -25,8 +25,7 @@ const rootMenu = [
         choices: [
             "View",
             "Add",
-            "Update",
-            "Delete"
+            "Update"
         ]
     }
 ];
@@ -40,8 +39,8 @@ const viewMenu = [
             "View all employees",
             "View employees by department",
             "View employees by role",
-            "View employees by manager",
-            "View budget by department",
+            "View all departments",
+            "View all roles",
         ]
     }
 ];
@@ -65,21 +64,7 @@ const updateMenu = [
         name: "updateMenuChoice",
         message: "What would you like to do?",
         choices: [
-            "Update an employee's role",
-            "Update an employee's manager",
-        ]
-    }
-];
-
-const deleteMenu = [
-    {
-        type: "list",
-        name: "deleteMenuChoice",
-        message: "What would you like to do?",
-        choices: [
-            "Delete an employee",
-            "Delete a role",
-            "Delete a department",
+            "Update an employee's role"
         ]
     }
 ];
@@ -161,28 +146,13 @@ const runMenu = async () => {
                         }
                     })
                     break;
-                case "View employees by manager":
-                    connection.query("SELECT manager_id, first_name, last_name FROM employees", async (err, managers) => {
-                        if (err) throw err;
-                        try {
-                            const managerChoice = await inquirer.prompt([
-                                {
-                                    type: "list",
-                                    name: "manager",
-                                    message: "Which manager's team would you like to see?",
-                                    choices: managers.map(manager => manager.id)
-                                }
-                            ])
-                            query = "SELECT * from employees WHERE manager_id = ? INNER JOIN roles ON employees.role_id = roles.id";
-                            runQuery(query, managerChoice.manager);
-                            runMenu();
-                        } catch (error) {
-                            console.log(error);
-                            connection.end();
-                        }
-                    })
+                case "View all departments":
+                    query = "SELECT * FROM departments";
+                    runQuery(query);
                     break;
-                case "View budget by department":
+                case "View all roles":
+                    query = "SELECT * FROM roles";
+                    runQuery(query);
                     break;
             }
             break;
@@ -205,6 +175,7 @@ const runMenu = async () => {
                     } catch (error) {
                        console.log(error); 
                     }
+                    console.log("Department successfully added.");
                     break;
                 case "Add a role":
                     connection.query("SELECT * FROM departments", async (err, departments) => {
@@ -249,35 +220,75 @@ const runMenu = async () => {
                             console.log(error);
                         }
                     })
+                    console.log("Role successfully added.");
                     break;
                 case "Add an employee":
-                    const employee = await inquirer.prompt([
-                        {
-                            type: "input",
-                            name: "first_name",
-                            message: "Please input the employee's first name."
-                        },
-                        {
-                            type: "input",
-                            name: "last_name",
-                            message: "Please input the employee's last name."
-                        },
-                        {
-                            type: "list",
-
-                        }
-                    ])
-                    query = "INSERT INTO departments (name, manager_id) VALUES (?, ?)";
-                    let { name: name2, manager_id: manager_id2 } = department;
-                    try {
-                        runQuery(query, [name2, manager_id2]);
-                        return console.log("Department successfully added.");
-                    } catch (error) {
-                       console.log(error); 
-                    }  
-                    break;   
+                    connection.query("SELECT id, first_name, last_name FROM employees", (err, employees) => {
+                        connection.query("SELECT * FROM roles", async (err, roles) => {
+                            if (err) throw err;
+                            let employeeInfo = await inquirer.prompt([
+                                {
+                                    type: "input",
+                                    name: "first_name",
+                                    message: "Please enter the employee's first name.",
+                                },
+                                {
+                                    type: "input",
+                                    name: "last_name",
+                                    message: "Please enter the employee's last name."
+                                },
+                                {
+                                    type: "list",
+                                    name: "role_id",
+                                    message: "Please choose the employee's role.",
+                                    choices: roles.map(role => `${role.id}: ${role.title}`)
+                                },
+                                {
+                                    type: "list",
+                                    name: "manager_id",
+                                    message: "Please choose the employee's manager.",
+                                    choices: employees.map(employee => `${employee.id}: ${employee.first_name} ${employee.last_name}`)
+                                }
+                            ])
+                            query = "INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?)"
+                            runQuery(query, [employeeInfo.first_name, employeeInfo.last_name, employeeInfo.role_id.substring(0, 1), employeeInfo.manager_id.substring(0, 1)]);
+                            console.log("Employee successfully added.");
+                        }) 
+                    })
+                    break;
             }
             break;
+        case "Update":
+            let updateChoice = await inquirer.prompt(updateMenu);
+            switch (updateChoice.updateMenuChoice) {
+                case "Update an employee's role": 
+                    connection.query("SELECT id, first_name, last_name FROM employees", async (err, employees) => {
+                        if (err) throw err;
+                        let { employeeChoice } = await inquirer.prompt([
+                            {
+                                type: "list",
+                                name: "employeeChoice",
+                                message: "Whose role would you like to update?",
+                                choices: employees.map(employee => `${employee.id}: ${employee.first_name} ${employee.last_name}`)
+                            }
+                        ])
+                        connection.query("SELECT * FROM roles", async (err, roles) => {
+                            if (err) throw err;
+                            let { role } = await inquirer.prompt([
+                                {
+                                    type: "list",
+                                    name: "role",
+                                    message: "Please choose the employee's new role.",
+                                    choices: roles.map(roles => `${roles.id}: ${roles.title}`)
+                                }
+                            ])
+                            query = "UPDATE employees SET role_id = ? WHERE id = ?";
+                            console.log(employeeChoice);
+                            runQuery(query, [role.substring(0, 1), employeeChoice.substring(0, 1)]);
+                        })
+                    })  
+                    break;     
+            }
     }
 };
 

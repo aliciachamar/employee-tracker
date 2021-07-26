@@ -31,3 +31,19 @@ CREATE TABLE employees (
     FOREIGN KEY (role_id) REFERENCES roles(id),
     FOREIGN KEY (manager_id) REFERENCES departments(manager_id)
 );
+
+INSERT INTO roles (title, salary, department_id)
+VALUES ("Salesperson", 100000, 1),
+("Tier 1 IT Support", 100000, 2),
+("Mechanical Engineer", 100000, 3),
+("Controller", 100000, 4),
+("CEO", 100000, 5);
+
+INSERT INTO employees (first_name, last_name, role_id)
+VALUES ("Bob", "Managerman", 5);
+
+INSERT INTO employees (first_name, last_name, role_id, manager_id)
+VALUES ("Sasha", "Salesgirl", 1, 1),
+("Ingrid", "Infowoman", 2, 1),
+("Ethan", "Engineerman", 3, 1),
+("Fancy", "Financewoman", 4, 1);
