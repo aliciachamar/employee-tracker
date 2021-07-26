@@ -285,6 +285,7 @@ const runMenu = async () => {
                             query = "UPDATE employees SET role_id = ? WHERE id = ?";
                             console.log(employeeChoice);
                             runQuery(query, [role.substring(0, 1), employeeChoice.substring(0, 1)]);
+                            console.log("Employee successfully updated.");
                         })
                     })  
                     break;     
