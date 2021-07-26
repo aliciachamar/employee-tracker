@@ -17,10 +17,10 @@ const connection = mysql.createConnection({
     database: 'employee_db',
 });
 
-const menu = [
+const rootMenu = [
     {
         type: "list",
-        name: "menuChoice",
+        name: "rootMenuChoice",
         message: "What would you like to do?",
         choices: [
             "View",
@@ -34,7 +34,7 @@ const menu = [
 const viewMenu = [
     {
         type: "list",
-        name: "menuChoice",
+        name: "viewMenuChoice",
         message: "What would you like to do?",
         choices: [
             "View all employees",
@@ -49,7 +49,7 @@ const viewMenu = [
 const addMenu = [
     {
         type: "list",
-        name: "menuChoice",
+        name: "addMenuChoice",
         message: "What would you like to do?",
         choices: [
             "Add a department",
@@ -62,7 +62,7 @@ const addMenu = [
 const updateMenu = [
     {
         type: "list",
-        name: "menuChoice",
+        name: "updateMenuChoice",
         message: "What would you like to do?",
         choices: [
             "Update an employee's role",
@@ -74,7 +74,7 @@ const updateMenu = [
 const deleteMenu = [
     {
         type: "list",
-        name: "menuChoice",
+        name: "deleteMenuChoice",
         message: "What would you like to do?",
         choices: [
             "Delete an employee",
@@ -87,75 +87,120 @@ const deleteMenu = [
 const runQuery = (query, insertions) => {
     connection.query(query, insertions, (err, result) => {
         if (err) throw err;
-        console.log("/n")
         console.table(result);
         runMenu();
     })
 };
 
 const runMenu = async () => {
-    const userChoice = await inquirer.prompt(menu);
-    let choice;
+    const userChoice = await inquirer.prompt(rootMenu);
     let query;
-    switch (userChoice.menuChoice) {
+    switch (userChoice.rootMenuChoice) {
         case "View": 
-            choice = await inquirer.prompt(viewMenu);
-            switch (choice.menuChoice) {
+            let viewChoice = await inquirer.prompt(viewMenu);
+            switch (viewChoice.viewMenuChoice) {
                 case "View all employees":
-                    try {
-                        query = "SELECT id, first_name, last_name FROM employees INNER JOIN roles ON employees.role_id = roles.id INNER JOIN departments ON employees.department = departments.id;";    
-                        runQuery(query);
-                    } catch (error) {
-                        console.log(error);
-                    }
+                    query = "SELECT * FROM employees INNER JOIN roles ON employees.role_id = roles.id";
+                    runQuery(query);
                     break;
                 case "View employees by department":
-                    connection.query("SELECT name FROM departments", async (err, departments) => {
+                    connection.query("SELECT id, name FROM departments", async (err, departments) => {
                         if (err) throw err;
+                        const departmentIds = departments.map(department => department.id);
+                        const names = departments.map(department => department.name);
+                        let combined = [];
+                        for (let i = 0; i < departmentIds.length; i++) {
+                            let newCombined = `${departmentIds[i]}: ${names[i]}`;
+                            combined.push(newCombined);
+                        }
                         try {
                             const departmentChoice = await inquirer.prompt([
                                 {
                                     type: "list",
                                     name: "department",
                                     message: "Which department would you like to see?",
-                                    choices: departments.map(department => department.name)
+                                    choices: combined
                                 }
                             ])
-                            query = "SELECT * from employees WHERE department = ?";
-                            runQuery(query, departmentChoice.department);
+                            query = "SELECT * from employees INNER JOIN roles ON employees.role_id = roles.id WHERE department_id = ?";
+                            let idChoice = departmentChoice.department.substring(0, 1);
+                            runQuery(query, idChoice);
                             runMenu();
                         } catch (error) {
+                            console.log(error);
                             connection.end();
                         }
                     })  
                     break;
                 case "View employees by role":
+                    connection.query("SELECT id, title FROM roles", async (err, roles) => {
+                        if (err) throw err;
+                        const roleIds = roles.map(role => role.id);
+                        const titles = roles.map(role => role.title);
+                        combined = [];
+                        for (let i = 0; i < roleIds.length; i++) {
+                            let newCombined = `${roleIds[i]}: ${titles[i]}`;
+                            combined.push(newCombined);
+                        }
+                        try {
+                            const roleChoice = await inquirer.prompt([
+                                {
+                                    type: "list",
+                                    name: "role",
+                                    message: "Which role would you like to see?",
+                                    choices: combined
+                                }
+                            ])
+                            query = "SELECT * from employees INNER JOIN roles ON employees.role_id = roles.id WHERE role_id = ?";
+                            idChoice = roleChoice.role.substring(0, 1);
+                            runQuery(query, idChoice);
+                            runMenu();
+                        } catch (error) {
+                            console.log(error);
+                            connection.end();
+                        }
+                    })
                     break;
                 case "View employees by manager":
+                    connection.query("SELECT manager_id, first_name, last_name FROM employees", async (err, managers) => {
+                        if (err) throw err;
+                        try {
+                            const managerChoice = await inquirer.prompt([
+                                {
+                                    type: "list",
+                                    name: "manager",
+                                    message: "Which manager's team would you like to see?",
+                                    choices: managers.map(manager => manager.id)
+                                }
+                            ])
+                            query = "SELECT * from employees WHERE manager_id = ? INNER JOIN roles ON employees.role_id = roles.id";
+                            runQuery(query, managerChoice.manager);
+                            runMenu();
+                        } catch (error) {
+                            console.log(error);
+                            connection.end();
+                        }
+                    })
                     break;
                 case "View budget by department":
                     break;
             }
+            break;
         case "Add":
-            choice = await inquirer.prompt(addMenu);
-            switch (choice.menuChoice) {
+            let addChoice = await inquirer.prompt(addMenu);
+            switch (addChoice.addMenuChoice) {
                 case "Add a department":
                     const department = await inquirer.prompt([
                         {
                             type: "input",
                             name: "name",
                             message: "Please input a new department name."
-                        },
-                        {
-                            type: "input",
-                            name: "manager_id",
-                            message: "Please input a manager ID for this department."
                         }
                     ])
-                    query = "INSERT INTO departments (name, manager_id) VALUES (?, ?)";
-                    let { name, manager_id } = department;
+                    query = "INSERT INTO departments (name) VALUES (?)";
+                    let { name } = department;
                     try {
-                        runQuery(query, [name, manager_id]);
+                        runQuery(query, name);
                         return console.log("Department successfully added.");
                     } catch (error) {
                        console.log(error); 
@@ -164,14 +209,13 @@ const runMenu = async () => {
                 case "Add a role":
                     connection.query("SELECT * FROM departments", async (err, departments) => {
                         if (err) throw err;
-                        let ids = departments.map(({ id }) => id);
-                        let names = departments.map(({ name }) => name);
-                        let combined = [];
-                        for (let i = 0; ids.length; i++) {
-                            let newCombined = `${ids[i]}: ${names[i]}`;
+                        const departmentIds2 = departments.map(department => department.id);
+                        const names2 = departments.map(department => department.name);
+                        combined = [];
+                        for (let i = 0; i < departmentIds2.length; i++) {
+                            let newCombined = `${departmentIds2[i]}: ${names2[i]}`;
                             combined.push(newCombined);
                         }
-                        console.log(combined);
                         try {
                             const role = await inquirer.prompt([
                                 {
@@ -192,9 +236,10 @@ const runMenu = async () => {
                                 }
                             ])
                             query = "INSERT INTO roles (title, salary, department_id) VALUES (?, ?, ?)";
-                            let { title, salary, department_id } = role;
+                            idChoice = role.department_id.substring(0, 1);
+                            let { title, salary } = role;
                             try {
-                                runQuery(query, [title, parseInt(salary), parseInt(department_id)]);
+                                runQuery(query, [title, parseInt(salary), parseInt(idChoice)]);
                                 return console.log("Role successfully added.");
                                 runMenu();
                             } catch (error) {
@@ -232,12 +277,12 @@ const runMenu = async () => {
                     }  
                     break;   
             }
+            break;
     }
 };
 
 connection.connect(async (err) => {
     if (err) throw err;
-    console.log(`connected as id ${connection.threadId}\n`);
     try {
         await runMenu();
     } catch (error) {
